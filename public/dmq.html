@@ -1,0 +1,54 @@
+<!doctype html><html><head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>DMQ UI</title>
+    <style>
+        body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;max-width:960px;margin:32px auto;padding:0 16px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+        .card{border:1px solid #ddd;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+        label{display:block;margin:8px 0 4px;font-size:14px}
+        input,textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-family:inherit}
+        button{margin-top:10px;padding:10px 14px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer}
+        pre{background:#f6f8fa;border-radius:8px;padding:12px;overflow:auto;max-height:260px}
+    </style></head><body>
+<h1>Distributed Message Queue</h1>
+<div class="grid">
+    <div class="card"><h3>Create Topic</h3>
+        <label>Topic</label><input id="tName" placeholder="orders">
+        <label>Partitions</label><input id="tParts" type="number" min="1" value="3">
+        <button onclick="createTopic()">Create</button><pre id="outTopic"></pre>
+    </div>
+    <div class="card"><h3>Produce (single)</h3>
+        <label>Topic</label><input id="pTopic" placeholder="orders">
+        <label>Key (optional)</label><input id="pKey" placeholder="user-42">
+        <label>Value (JSON or text)</label><textarea id="pVal" rows="4">{\"id\":1,\"total\":9.99}</textarea>
+        <button onclick="produce()">Send</button><pre id="outProduce"></pre>
+    </div>
+    <div class="card"><h3>Produce (batch)</h3>
+        <label>Topic</label><input id="pbTopic" placeholder="orders">
+        <label>Messages (JSON array of {key?, value})</label>
+        <textarea id="pbVal" rows="6">[{\"key\":\"u1\",\"value\":{\"id\":1}}, {\"key\":\"u2\",\"value\":\"hello\"}]</textarea>
+        <button onclick="produceBatch()">Send Batch</button><pre id="outProduceBatch"></pre>
+    </div>
+    <div class="card"><h3>Consume</h3>
+        <label>Topic</label><input id="cTopic" placeholder="orders">
+        <label>Group</label><input id="cGroup" placeholder="svc-a">
+        <label>Max</label><input id="cMax" type="number" min="1" value="10">
+        <label>Long Poll (ms)</label><input id="cLp" type="number" min="0" value="0">
+        <button onclick="consume()">Pull</button><pre id="outConsume"></pre>
+    </div>
+    <div class="card"><h3>ACK</h3>
+        <label>Topic</label><input id="aTopic" placeholder="orders">
+        <label>Group</label><input id="aGroup" placeholder="svc-a">
+        <label>Partition</label><input id="aPart" type="number" min="0" value="0">
+        <label>Offset</label><input id="aOff" type="number" min="0" value="0">
+        <button onclick="ack()">Commit</button><pre id="outAck"></pre>
+    </div>
+</div>
+<script>
+    async function http(path, body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();try{return{ok:r.ok,json:JSON.parse(t)}}catch{return{ok:r.ok,json:{raw:t}}}}
+    async function createTopic(){const name=tName.value.trim();const partitions=+tParts.value||1;outTopic.textContent=JSON.stringify((await http('/topics',{name,partitions})).json,null,2)}
+    async function produce(){const topic=pTopic.value.trim();const key=pKey.value.trim();let value=pVal.value;try{value=JSON.parse(value)}catch{};outProduce.textContent=JSON.stringify((await http('/produce',{topic,key:key||undefined,value})).json,null,2)}
+    async function produceBatch(){const topic=pbTopic.value.trim();let messages;try{messages=JSON.parse(pbVal.value)}catch{messages=[]};outProduceBatch.textContent=JSON.stringify((await http('/produce/batch',{topic,messages})).json,null,2)}
+    async function consume(){const topic=cTopic.value.trim();const group=cGroup.value.trim();const max=+cMax.value||1;const longPollMs=+cLp.value||0;const r=await http('/consume',{topic,group,max,longPollMs});outConsume.textContent=JSON.stringify(r.json,null,2);if(r.json&&r.json.messages&&r.json.messages[0]){const m=r.json.messages[0];aPart.value=m.partition;aOff.value=m.offset;aTopic.value=topic;aGroup.value=group}}
+    async function ack(){const topic=aTopic.value.trim();const group=aGroup.value.trim();const partition=+aPart.value||0;const offset=+aOff.value||0;outAck.textContent=JSON.stringify((await http('/ack',{topic,group,partition,offset})).json,null,2)}
+</script></body></html>

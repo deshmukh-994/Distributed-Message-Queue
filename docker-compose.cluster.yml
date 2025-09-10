@@ -1,0 +1,39 @@
+
+services:
+ broker1:
+  build: .
+  ports: ["4000:4000"]
+  environment:
+  - PORT=4000
+   -BASE_URL=http://localhost:4000
+   - DB_FILE=/data/dmq1.db
+  - BROKER_ID=broker-1
+  - BROKER_PEERS=http://broker2:4001,http://broker3:4002
+  - LEADER=true
+  volumes: ["./data:/data"]
+
+
+ broker2:
+  build: .
+  ports: ["4001:4001"]
+  environment:
+  - PORT=4001
+  - BASE_URL=http://localhost:4001
+  - DB_FILE=/data/dmq2.db
+  - BROKER_ID=broker-2
+  - BROKER_PEERS=http://broker1:4000,http://broker3:4002
+  - LEADER=false
+  command: ["node","src/server.js"]
+
+
+ broker3:
+  build: .
+  ports: ["4002:4002"]
+  environment:
+  - PORT=4002
+  - BASE_URL=http://localhost:4002
+  - DB_FILE=/data/dmq3.db
+  - BROKER_ID=broker-3
+  - BROKER_PEERS=http://broker1:4000,http://broker2:4001
+  - LEADER=false
+  command: ["node","src/server.js"]
